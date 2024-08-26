@@ -18,6 +18,7 @@ const notionService = new NotionService();
 export async function POST(req: Request) {
   try {
     const content = await req.json();
+    console.log('req.body', JSON.stringify(req));
     // TODO: Format response to match ContactInfoSchema if it's not already
     const safeResponse = ContactInfoSchema.parse(content);
     const userMessage = safeResponse.properties.contactInfo;

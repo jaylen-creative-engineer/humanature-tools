@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 export function POST(req: Request) {
-  console.log('req.body', req.body);
+  console.log('req.body', JSON.stringify(req));
 
   return NextResponse.json(
     {
