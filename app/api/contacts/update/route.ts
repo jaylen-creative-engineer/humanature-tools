@@ -1,12 +1,12 @@
-import { NextResponse } from "next/server";
-import OpenAI from "openai";
-import { zodResponseFormat } from "openai/helpers/zod";
+import { NextResponse } from 'next/server';
+import OpenAI from 'openai';
+import { zodResponseFormat } from 'openai/helpers/zod';
 import {
   ContactInfoSchema,
   contactsSystemPrompt,
   ContactsOutputResponseSchema,
-} from "./ContactsSchema";
-import { NotionService } from "@/app/services";
+} from '../ContactsSchema';
+import { NotionService } from '@/app/services';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -23,17 +23,17 @@ export async function POST(req: Request) {
 
     return openai.beta.chat.completions
       .parse({
-        model: "gpt-4o-2024-08-06",
+        model: 'gpt-4o-2024-08-06',
         messages: [
-          { role: "system", content: contactsSystemPrompt },
+          { role: 'system', content: contactsSystemPrompt },
           {
-            role: "user",
+            role: 'user',
             content: userMessage,
           },
         ],
         response_format: zodResponseFormat(
           ContactsOutputResponseSchema,
-          "contact"
+          'contact',
         ),
       })
       .then((response) => response.choices[0].message)
@@ -46,14 +46,14 @@ export async function POST(req: Request) {
             {
               response: `${parsedResponse.response_message}. Here's a link to the page ${url}.`,
             },
-            { status: 200 }
+            { status: 200 },
           );
         }
 
         if (ai_message.refusal) {
           return NextResponse.json(
             { response: ai_message.refusal },
-            { status: 500 }
+            { status: 500 },
           );
         }
       })
@@ -62,8 +62,8 @@ export async function POST(req: Request) {
       });
   } catch (error) {
     return NextResponse.json(
-      { response: "Internal Server Error" },
-      { status: 500 }
+      { response: 'Internal Server Error' },
+      { status: 500 },
     );
   }
 }
