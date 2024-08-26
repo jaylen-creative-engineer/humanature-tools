@@ -17,11 +17,16 @@ const notionService = new NotionService();
 
 export async function POST(req: Request) {
   try {
-    const content = await req.json();
-    console.log('req.body', JSON.stringify(req));
-    // Get body from req parameter
-    const twillioBody = content.pa;
-    // TODO: Format response to match ContactInfoSchema if it's not already
+    let content = (req && getTwillioBody(req)) || (await req.json());
+
+    if (!content.properties) {
+      content = {
+        properties: {
+          contactInfo: content,
+        },
+      };
+    }
+
     const safeResponse = ContactInfoSchema.parse(content);
     const userMessage = safeResponse.properties.contactInfo;
 
@@ -66,8 +71,15 @@ export async function POST(req: Request) {
       });
   } catch (error) {
     return NextResponse.json(
-      { message: 'Internal Server Error' },
+      { message: `Internal Server Error ${error}` },
       { status: 200 },
     );
   }
+}
+
+function getTwillioBody(req: Request) {
+  const url = new URL(req.url);
+  const twillioBody = url.searchParams.get('body') || JSON.stringify(req.body);
+
+  return twillioBody;
 }
