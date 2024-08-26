@@ -19,6 +19,8 @@ export async function POST(req: Request) {
   try {
     const content = await req.json();
     console.log('req.body', JSON.stringify(req));
+    // Get body from req parameter
+    const twillioBody = content.pa;
     // TODO: Format response to match ContactInfoSchema if it's not already
     const safeResponse = ContactInfoSchema.parse(content);
     const userMessage = safeResponse.properties.contactInfo;
@@ -46,7 +48,7 @@ export async function POST(req: Request) {
 
           return NextResponse.json(
             {
-              response: `${parsedResponse.response_message}. Here's a link to the page ${url}.`,
+              message: `${parsedResponse.response_message}. Here's a link to the page ${url}.`,
             },
             { status: 200 },
           );
@@ -54,7 +56,7 @@ export async function POST(req: Request) {
 
         if (ai_message.refusal) {
           return NextResponse.json(
-            { response: ai_message.refusal },
+            { message: ai_message.refusal },
             { status: 500 },
           );
         }
@@ -64,8 +66,8 @@ export async function POST(req: Request) {
       });
   } catch (error) {
     return NextResponse.json(
-      { response: 'Internal Server Error' },
-      { status: 500 },
+      { message: 'Internal Server Error' },
+      { status: 200 },
     );
   }
 }

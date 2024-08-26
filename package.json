@@ -13,6 +13,7 @@
     "@langchain/core": "^0.2.23",
     "@langchain/langgraph": "^0.0.34",
     "@langchain/openai": "^0.2.6",
+    "@vercel/speed-insights": "^1.0.12",
     "langchain": "^0.2.15",
     "next": "14.2.5",
     "openai": "^4.56.0",
