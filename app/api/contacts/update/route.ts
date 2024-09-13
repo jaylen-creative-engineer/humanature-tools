@@ -6,7 +6,7 @@ import {
   contactsSystemPrompt,
   ContactsOutputResponseSchema,
 } from './ContactsSchema';
-import { NotionService } from '@/app/services';
+import { NotionService, TwillioService } from '@/app/services';
 import { ChatCompletionMessageParam } from 'openai/resources/index.mjs';
 
 const openai = new OpenAI({
@@ -15,6 +15,7 @@ const openai = new OpenAI({
   project: process.env.OPENAI_PROJECT_ID,
 });
 const notionService = new NotionService();
+const twillioService = new TwillioService();
 
 type CRMMessage = ChatCompletionMessageParam & {
   is_follow_up?: boolean;
@@ -30,7 +31,33 @@ const messages: CRMMessage[] = [
 
 export async function POST(req: Request) {
   try {
-    const content = await req.json();
+    const contentType = req.headers.get('Content-Type');
+    const isTwilioRequest = contentType?.includes(
+      'application/x-www-form-urlencoded',
+    );
+    let content;
+    let senderPhoneNumber = '';
+
+    if (isTwilioRequest) {
+      const isValidTwilioRequest = await twillioService.validateRequest(req);
+
+      if (!isValidTwilioRequest) {
+        return NextResponse.json(
+          { error: 'Invalid Twilio request' },
+          { status: 400 },
+        );
+      }
+
+      const clonedReq = req.clone();
+      const formData = await clonedReq.formData();
+      senderPhoneNumber = formData.get('From') as string;
+      content = {
+        contactMessage: formData.get('Body') as string,
+      };
+    } else {
+      content = await req.json();
+    }
+
     const safeResponse = ContactInfoSchema.parse(content);
 
     messages.push({
@@ -64,9 +91,23 @@ export async function POST(req: Request) {
           });
 
           if (followUpNeeded) {
+            if (isTwilioRequest) {
+              await twillioService.sendMessage(
+                parsedResponse.response_message,
+                senderPhoneNumber,
+              );
+            }
+
             return NextResponse.json(
-              { response: parsedResponse.response_message },
+              { response: parsedResponse.response_message, follow_up: true },
               { status: 200 },
+            );
+          }
+
+          if (isTwilioRequest) {
+            await twillioService.sendMessage(
+              parsedResponse.response_message,
+              senderPhoneNumber,
             );
           }
 

@@ -1,31 +1,57 @@
-import { Client } from 'twilio/lib/base/BaseTwilio';
-import MessagingResponse from 'twilio/lib/twiml/MessagingResponse';
-
-type TwilioClient = Client & {
-  messages?: {
-    create: (options: {
-      body?: string;
-      from?: string;
-      to?: string;
-    }) => Promise<void>;
-  };
-};
+import twilio from 'twilio';
 
 export default class TwillioService {
-  _twillioSetup() {
-    const client: TwilioClient = new Client(
-      process.env.TWILLIO_ACCOUNT_SID,
-      process.env.TWILLIO_AUTH_TOKEN,
-    );
+  private client: twilio.Twilio;
+  private accountSid: string;
+  private authToken: string;
 
-    client.messages?.create({
-      body: 'Hello, world!',
-      from: process.env.TWILLIO_PHONE_NUMBER,
-      to: process.env.TWILLIO_PHONE_NUMBER,
-    });
+  constructor() {
+    this.accountSid = process.env.TWILLIO_ACCOUNT_SID || '';
+    this.authToken = process.env.TWILLIO_AUTH_TOKEN || '';
+    this.client = twilio(this.accountSid, this.authToken);
   }
 
-  replyToText(bot_response: string) {
-    return new MessagingResponse().message(bot_response).toString();
+  async sendMessage(message: string, phoneNumber: string) {
+    return this.client.messages
+      ?.create({
+        body: message,
+        from: process.env.TWILLIO_PHONE_NUMBER,
+        to: phoneNumber ?? '+12157309681',
+      })
+      .then((message) => {
+        return message;
+      })
+      .catch((error) => {
+        console.log(error);
+        return error;
+      });
+  }
+
+  async validateRequest(req: Request) {
+    if (req.method === 'POST') {
+      try {
+        const twillioSignature = req.headers.get('X-Twilio-Signature');
+        const params = req.body as Record<string, any>;
+        const url = req.url;
+
+        const isValid = twilio.validateRequest(
+          this.authToken ?? '',
+          twillioSignature ?? '',
+          url,
+          params,
+        );
+
+        if (!isValid) {
+          return new Error('Invalid Twilio request');
+        }
+
+        return true;
+      } catch (error) {
+        console.error(error);
+        return new Error('Error processing request');
+      }
+    } else {
+      return new Error('Method not allowed');
+    }
   }
 }
