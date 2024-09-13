@@ -5,8 +5,9 @@ import {
   ContactInfoSchema,
   contactsSystemPrompt,
   ContactsOutputResponseSchema,
-} from '../ContactsSchema';
+} from './ContactsSchema';
 import { NotionService } from '@/app/services';
+import { ChatCompletionMessageParam } from 'openai/resources/index.mjs';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -15,31 +16,33 @@ const openai = new OpenAI({
 });
 const notionService = new NotionService();
 
+type CRMMessage = ChatCompletionMessageParam & {
+  is_follow_up?: boolean;
+};
+
+const messages: CRMMessage[] = [
+  {
+    name: 'contact-manager',
+    role: 'system',
+    content: contactsSystemPrompt,
+  },
+];
+
 export async function POST(req: Request) {
   try {
-    let content = (req && getTwillioBody(req)) || (await req.json());
-
-    if (!content.properties) {
-      content = {
-        properties: {
-          contactInfo: content,
-        },
-      };
-    }
-
+    const content = await req.json();
     const safeResponse = ContactInfoSchema.parse(content);
-    const userMessage = safeResponse.properties.contactInfo;
+
+    messages.push({
+      name: 'humanature-user',
+      role: 'user',
+      content: safeResponse.contactMessage,
+    });
 
     return openai.beta.chat.completions
       .parse({
         model: 'gpt-4o-2024-08-06',
-        messages: [
-          { role: 'system', content: contactsSystemPrompt },
-          {
-            role: 'user',
-            content: userMessage,
-          },
-        ],
+        messages: messages,
         response_format: zodResponseFormat(
           ContactsOutputResponseSchema,
           'contact',
@@ -49,19 +52,42 @@ export async function POST(req: Request) {
       .then(async (ai_message) => {
         if (ai_message.parsed) {
           const parsedResponse = ai_message.parsed;
-          const url = await notionService.updateDatabase(parsedResponse);
+          const followUpNeeded =
+            parsedResponse.additional_details_needed &&
+            !messages.some((message) => message.is_follow_up);
 
+          messages.push({
+            name: 'humanature-assistant',
+            role: 'assistant',
+            content: parsedResponse.response_message,
+            ...(followUpNeeded && { is_follow_up: true }),
+          });
+
+          if (followUpNeeded) {
+            return NextResponse.json(
+              { response: parsedResponse.response_message },
+              { status: 200 },
+            );
+          }
+
+          await notionService.updateCRMDatabase(parsedResponse);
           return NextResponse.json(
             {
-              message: `${parsedResponse.response_message}. Here's a link to the page ${url}.`,
+              response: `${parsedResponse.response_message}`,
             },
             { status: 200 },
           );
         }
 
         if (ai_message.refusal) {
+          messages.push({
+            name: 'humanature-user',
+            role: 'assistant',
+            content: ai_message.refusal,
+          });
+
           return NextResponse.json(
-            { message: ai_message.refusal },
+            { response: ai_message.refusal },
             { status: 500 },
           );
         }
@@ -71,15 +97,8 @@ export async function POST(req: Request) {
       });
   } catch (error) {
     return NextResponse.json(
-      { message: `Internal Server Error ${error}` },
-      { status: 200 },
+      { response: 'Internal Server Error', error },
+      { status: 500 },
     );
   }
-}
-
-function getTwillioBody(req: Request) {
-  const url = new URL(req.url);
-  const twillioBody = url.searchParams.get('body') || JSON.stringify(req.body);
-
-  return twillioBody;
 }
