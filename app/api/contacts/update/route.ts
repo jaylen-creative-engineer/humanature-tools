@@ -34,6 +34,7 @@ export async function POST(req: Request) {
     let senderPhoneNumber = '';
 
     if (isTwilioRequest) {
+      console.log('Recieved Twilio Request');
       const isValidTwilioRequest = await twilioService.validateRequest(req);
 
       if (!isValidTwilioRequest) {
@@ -73,6 +74,7 @@ export async function POST(req: Request) {
       .then((response) => response.choices[0].message)
       .then(async (ai_message) => {
         if (ai_message.parsed) {
+          console.log('AI Message Parsed');
           const parsedResponse = ai_message.parsed;
           const followUpNeeded =
             parsedResponse.additional_details_needed &&

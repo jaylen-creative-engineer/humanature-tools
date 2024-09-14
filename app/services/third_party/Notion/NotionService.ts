@@ -12,6 +12,7 @@ export default class NotionService {
       const response = await notion.pages.create(
         this.formatCRMPage(ai_message),
       );
+      console.log('Notion Updated');
       return response;
     } catch (error) {
       throw new Error(`Notion Error: ${error}`);

@@ -12,6 +12,7 @@ export default class TwilioService {
   }
 
   async sendMessage(message: string, phoneNumber: string) {
+    console.log('Sending message', message, phoneNumber);
     return this.client.messages
       ?.create({
         body: message,
