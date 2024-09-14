@@ -13,3 +13,7 @@ type AICRMResponse = {
   response_message?: string;
   other?: string;
 };
+
+type CRMMessage = ChatCompletionMessageParam & {
+  is_follow_up?: boolean;
+};

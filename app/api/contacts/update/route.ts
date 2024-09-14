@@ -6,8 +6,7 @@ import {
   contactsSystemPrompt,
   ContactsOutputResponseSchema,
 } from './ContactsSchema';
-import { NotionService, TwillioService } from '@/app/services';
-import { ChatCompletionMessageParam } from 'openai/resources/index.mjs';
+import { NotionService, TwilioService } from '@/app/services';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -15,11 +14,7 @@ const openai = new OpenAI({
   project: process.env.OPENAI_PROJECT_ID,
 });
 const notionService = new NotionService();
-const twillioService = new TwillioService();
-
-type CRMMessage = ChatCompletionMessageParam & {
-  is_follow_up?: boolean;
-};
+const twilioService = new TwilioService();
 
 const messages: CRMMessage[] = [
   {
@@ -31,15 +26,15 @@ const messages: CRMMessage[] = [
 
 export async function POST(req: Request) {
   try {
-    const contentType = req.headers.get('Content-Type');
-    const isTwilioRequest = contentType?.includes(
-      'application/x-www-form-urlencoded',
-    );
+    const isTwilioRequest = req.headers
+      .get('Content-Type')
+      ?.includes('application/x-www-form-urlencoded');
+
     let content;
     let senderPhoneNumber = '';
 
     if (isTwilioRequest) {
-      const isValidTwilioRequest = await twillioService.validateRequest(req);
+      const isValidTwilioRequest = await twilioService.validateRequest(req);
 
       if (!isValidTwilioRequest) {
         return NextResponse.json(
@@ -91,12 +86,11 @@ export async function POST(req: Request) {
           });
 
           if (followUpNeeded) {
-            if (isTwilioRequest) {
-              await twillioService.sendMessage(
+            isTwilioRequest &&
+              (await twilioService.sendMessage(
                 parsedResponse.response_message,
                 senderPhoneNumber,
-              );
-            }
+              ));
 
             return NextResponse.json(
               { response: parsedResponse.response_message, follow_up: true },
@@ -104,12 +98,11 @@ export async function POST(req: Request) {
             );
           }
 
-          if (isTwilioRequest) {
-            await twillioService.sendMessage(
+          isTwilioRequest &&
+            (await twilioService.sendMessage(
               parsedResponse.response_message,
               senderPhoneNumber,
-            );
-          }
+            ));
 
           await notionService.updateCRMDatabase(parsedResponse);
           return NextResponse.json(

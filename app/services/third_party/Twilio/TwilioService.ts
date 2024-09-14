@@ -1,13 +1,13 @@
 import twilio from 'twilio';
 
-export default class TwillioService {
+export default class TwilioService {
   private client: twilio.Twilio;
   private accountSid: string;
   private authToken: string;
 
   constructor() {
-    this.accountSid = process.env.TWILLIO_ACCOUNT_SID || '';
-    this.authToken = process.env.TWILLIO_AUTH_TOKEN || '';
+    this.accountSid = process.env.TWILIO_ACCOUNT_SID || '';
+    this.authToken = process.env.TWILIO_AUTH_TOKEN || '';
     this.client = twilio(this.accountSid, this.authToken);
   }
 
@@ -15,7 +15,7 @@ export default class TwillioService {
     return this.client.messages
       ?.create({
         body: message,
-        from: process.env.TWILLIO_PHONE_NUMBER,
+        from: process.env.TWILIO_PHONE_NUMBER,
         to: phoneNumber ?? '+12157309681',
       })
       .then((message) => {
