@@ -52,7 +52,7 @@ export async function POST(req: Request) {
         if (ai_message.parsed) {
           console.log('AI Message Parsed');
           return handleParsedResponse(
-            ai_message.parsed as ParsedResponse,
+            ai_message.parsed as AICRMResponse,
             isTwilioRequest,
             senderPhoneNumber,
             messages,

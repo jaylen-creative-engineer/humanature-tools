@@ -1,18 +1,25 @@
 import { Client } from '@notionhq/client';
-import { CreatePageParameters } from '@notionhq/client/build/src/api-endpoints';
+import {
+  CreatePageParameters,
+  CreatePageResponse,
+} from '@notionhq/client/build/src/api-endpoints';
 import { crmPropertyMap } from './NotionPropertyMap';
 
 const notion = new Client({
   auth: process.env.NOTION_API_KEY,
 });
 
+type NotionResponse = CreatePageResponse & {
+  url?: string;
+};
+
 export default class NotionService {
   async updateCRMDatabase(ai_message: AICRMResponse) {
     try {
-      const response = await notion.pages.create(
+      const response: NotionResponse = await notion.pages.create(
         this.formatCRMPage(ai_message),
       );
-      console.log('Notion Updated');
+      console.log('Notion Updated', response);
       return response;
     } catch (error) {
       console.log('Notion Error');

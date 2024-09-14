@@ -5,13 +5,15 @@ const notionService = new NotionService();
 const twilioService = new TwilioService();
 
 export function handleParsedResponse(
-  parsedResponse: ParsedResponse,
+  parsedResponse: AICRMResponse,
   isTwilioRequest: boolean,
   senderPhoneNumber: string,
   messages: CRMMessage[],
 ): Promise<NextResponse> {
-  const followUpNeeded = isFollowUpNeeded(parsedResponse, messages);
-
+  const followUpNeeded =
+    (parsedResponse.requires_follow_up &&
+      messages.some((message) => !message.is_follow_up)) ||
+    false;
   addMessageToHistory(
     parsedResponse.response_message || '',
     followUpNeeded,
@@ -21,18 +23,6 @@ export function handleParsedResponse(
   return followUpNeeded
     ? handleFollowUp(parsedResponse, isTwilioRequest, senderPhoneNumber)
     : handleFinalResponse(parsedResponse, isTwilioRequest, senderPhoneNumber);
-}
-
-export function isFollowUpNeeded(
-  parsedResponse: ParsedResponse,
-  messages: CRMMessage[],
-): boolean {
-  const hasPreviousFollowUp =
-    messages.some((message) => message.is_follow_up) ||
-    parsedResponse.previous_follow_up_question;
-  const needsAdditionalDetails = parsedResponse.additional_details_needed;
-
-  return Boolean(!hasPreviousFollowUp && needsAdditionalDetails);
 }
 
 function addMessageToHistory(
@@ -50,7 +40,7 @@ function addMessageToHistory(
 }
 
 async function handleFollowUp(
-  parsedResponse: ParsedResponse,
+  parsedResponse: AICRMResponse,
   isTwilioRequest: boolean,
   senderPhoneNumber: string,
 ): Promise<NextResponse> {
@@ -68,7 +58,7 @@ async function handleFollowUp(
 }
 
 async function handleFinalResponse(
-  parsedResponse: ParsedResponse,
+  parsedResponse: AICRMResponse,
   isTwilioRequest: boolean,
   senderPhoneNumber: string,
 ): Promise<NextResponse> {
@@ -79,12 +69,12 @@ async function handleFinalResponse(
     );
   }
 
-  await notionService.updateCRMDatabase(parsedResponse);
+  const notionResponse = await notionService.updateCRMDatabase(parsedResponse);
+  const finalMessage =
+    parsedResponse.response_message +
+    `Here's the link to the contact in your CRM: ${notionResponse.url}`;
 
-  return NextResponse.json(
-    { response: parsedResponse.response_message },
-    { status: 200 },
-  );
+  return NextResponse.json({ response: finalMessage }, { status: 200 });
 }
 
 export function handleRefusal(

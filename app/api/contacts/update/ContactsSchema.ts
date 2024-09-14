@@ -1,9 +1,10 @@
 import { z } from 'zod';
 
-export const contactsSystemPrompt = `Extract the relevant contact information from the user. 
-When you respond to the user, let them know that you have stored the information in their contacts database. 
-Include a brief summary. If no next action is provided set it to "Follow up". 
-Do not assume context. If you do not have enough details ask one follow up question.`;
+export const contactsSystemPrompt = `Your job is to help me manage my contacts database. 
+Extract the relevant contact information from the user. You should have a calm, conversational, professional tone.
+
+Do not assume contact information. If you do not have enough details ask follow up questions. 
+Set requires_follow_up to true if any of your required fields need more user information. Optional fields do not need follow up.`;
 
 export const ContactsOutputResponseSchema = z.object({
   name: z.string(),
@@ -48,8 +49,7 @@ export const ContactsOutputResponseSchema = z.object({
   email: z.string().optional(),
   bio: z.string().optional(),
   original_input: z.string(),
-  previous_follow_up_question: z.string().optional(),
-  additional_details_needed: z.string().optional(),
+  requires_follow_up: z.boolean(),
   response_message: z.string(),
   other: z.string().optional(),
 });
