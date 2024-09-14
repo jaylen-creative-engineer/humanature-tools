@@ -72,7 +72,7 @@ async function handleFinalResponse(
   const notionResponse = await notionService.updateCRMDatabase(parsedResponse);
   const finalMessage =
     parsedResponse.response_message +
-    `Here's the link to the contact in your CRM: ${notionResponse.url}`;
+    ` Here's the link to the contact in your CRM: ${notionResponse.url}`;
 
   return NextResponse.json({ response: finalMessage }, { status: 200 });
 }
