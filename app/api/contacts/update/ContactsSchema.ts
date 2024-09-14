@@ -48,6 +48,7 @@ export const ContactsOutputResponseSchema = z.object({
   email: z.string().optional(),
   bio: z.string().optional(),
   original_input: z.string(),
+  previous_follow_up_question: z.string().optional(),
   additional_details_needed: z.string().optional(),
   response_message: z.string(),
   other: z.string().optional(),

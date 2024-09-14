@@ -15,6 +15,7 @@ export default class NotionService {
       console.log('Notion Updated');
       return response;
     } catch (error) {
+      console.log('Notion Error');
       throw new Error(`Notion Error: ${error}`);
     }
   }

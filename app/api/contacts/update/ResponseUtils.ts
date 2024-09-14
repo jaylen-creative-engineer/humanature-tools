@@ -18,25 +18,21 @@ export function handleParsedResponse(
     messages,
   );
 
-  if (followUpNeeded) {
-    return handleFollowUp(parsedResponse, isTwilioRequest, senderPhoneNumber);
-  }
-
-  return handleFinalResponse(
-    parsedResponse,
-    isTwilioRequest,
-    senderPhoneNumber,
-  );
+  return followUpNeeded
+    ? handleFollowUp(parsedResponse, isTwilioRequest, senderPhoneNumber)
+    : handleFinalResponse(parsedResponse, isTwilioRequest, senderPhoneNumber);
 }
 
 export function isFollowUpNeeded(
   parsedResponse: ParsedResponse,
   messages: CRMMessage[],
 ): boolean {
-  return (
-    !!parsedResponse.additional_details_needed &&
-    !messages.some((message) => message.is_follow_up)
-  );
+  const hasPreviousFollowUp =
+    messages.some((message) => message.is_follow_up) ||
+    parsedResponse.previous_follow_up_question;
+  const needsAdditionalDetails = parsedResponse.additional_details_needed;
+
+  return Boolean(!hasPreviousFollowUp && needsAdditionalDetails);
 }
 
 function addMessageToHistory(
