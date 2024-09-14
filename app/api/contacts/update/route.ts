@@ -6,15 +6,17 @@ import {
   contactsSystemPrompt,
   ContactsOutputResponseSchema,
 } from './ContactsSchema';
-import { NotionService, TwilioService } from '@/app/services';
+import {
+  handleParsedResponse,
+  handleRefusal,
+  validateWebhookRequest,
+} from './ResponseUtils';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
   organization: process.env.OPENAI_ORG_ID,
   project: process.env.OPENAI_PROJECT_ID,
 });
-const notionService = new NotionService();
-const twilioService = new TwilioService();
 
 const messages: CRMMessage[] = [
   {
@@ -26,34 +28,8 @@ const messages: CRMMessage[] = [
 
 export async function POST(req: Request) {
   try {
-    const isTwilioRequest = req.headers
-      .get('Content-Type')
-      ?.includes('application/x-www-form-urlencoded');
-
-    let content;
-    let senderPhoneNumber = '';
-
-    if (isTwilioRequest) {
-      console.log('Recieved Twilio Request');
-      const isValidTwilioRequest = await twilioService.validateRequest(req);
-
-      if (!isValidTwilioRequest) {
-        return NextResponse.json(
-          { error: 'Invalid Twilio request' },
-          { status: 400 },
-        );
-      }
-
-      const clonedReq = req.clone();
-      const formData = await clonedReq.formData();
-      senderPhoneNumber = formData.get('From') as string;
-      content = {
-        contactMessage: formData.get('Body') as string,
-      };
-    } else {
-      content = await req.json();
-    }
-
+    const { content, senderPhoneNumber, isTwilioRequest } =
+      await validateWebhookRequest(req);
     const safeResponse = ContactInfoSchema.parse(content);
 
     messages.push({
@@ -75,63 +51,31 @@ export async function POST(req: Request) {
       .then(async (ai_message) => {
         if (ai_message.parsed) {
           console.log('AI Message Parsed');
-          const parsedResponse = ai_message.parsed;
-          const followUpNeeded =
-            parsedResponse.additional_details_needed &&
-            !messages.some((message) => message.is_follow_up);
-
-          messages.push({
-            name: 'humanature-assistant',
-            role: 'assistant',
-            content: parsedResponse.response_message,
-            ...(followUpNeeded && { is_follow_up: true }),
-          });
-
-          if (followUpNeeded) {
-            isTwilioRequest &&
-              (await twilioService.sendMessage(
-                parsedResponse.response_message,
-                senderPhoneNumber,
-              ));
-
-            return NextResponse.json(
-              { response: parsedResponse.response_message, follow_up: true },
-              { status: 200 },
-            );
-          }
-
-          isTwilioRequest &&
-            (await twilioService.sendMessage(
-              parsedResponse.response_message,
-              senderPhoneNumber,
-            ));
-
-          await notionService.updateCRMDatabase(parsedResponse);
-          return NextResponse.json(
-            {
-              response: `${parsedResponse.response_message}`,
-            },
-            { status: 200 },
+          return handleParsedResponse(
+            ai_message.parsed as ParsedResponse,
+            isTwilioRequest,
+            senderPhoneNumber,
+            messages,
           );
         }
 
         if (ai_message.refusal) {
-          messages.push({
-            name: 'humanature-user',
-            role: 'assistant',
-            content: ai_message.refusal,
-          });
-
-          return NextResponse.json(
-            { response: ai_message.refusal },
-            { status: 500 },
-          );
+          return handleRefusal(ai_message.refusal, messages);
         }
+
+        throw new Error('Error getting response from AI');
       })
       .catch((error) => {
         throw new Error(error);
       });
   } catch (error) {
+    if (error instanceof Error && error.message === 'Invalid Twilio request') {
+      return NextResponse.json(
+        { error: 'Invalid Twilio request' },
+        { status: 400 },
+      );
+    }
+
     return NextResponse.json(
       { response: 'Internal Server Error', error },
       { status: 500 },

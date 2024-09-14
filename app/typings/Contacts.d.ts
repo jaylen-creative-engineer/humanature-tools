@@ -17,3 +17,12 @@ type AICRMResponse = {
 type CRMMessage = ChatCompletionMessageParam & {
   is_follow_up?: boolean;
 };
+
+type ParsedResponse = AICRMResponse & {
+  additional_details_needed?: boolean;
+};
+
+type AIMessage = {
+  parsed?: ParsedResponse;
+  refusal?: string;
+};
